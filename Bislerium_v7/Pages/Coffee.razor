@@ -29,7 +29,7 @@
                     <button class="btn btn-outline-danger" type="button" @onclick="()=>OpenDeleteCoffeeDialog(coffee)">
                         <span class="oi oi-delete" /> Delete
                     </button>
-                    <button class="btn btn-outline-danger" type="button" @onclick ="()=>OpenUpdateCoffeeDialog(coffee)">
+                    <button class="btn btn-outline-danger" type="button" @onclick="()=>OpenUpdateCoffeeDialog(coffee)">
                         <span class="oi oi-edit" /> Edit
                     </button>
                 </td>
@@ -80,6 +80,23 @@
     </ModalDialog>
 }
 
+@if (_showPasswordConfirmationDialog)
+{
+    <ModalDialog Title="Confirm Update" OnClose="@OnPasswordConfirmationDialogClose" OkLabel="Confirm">
+        <form>
+            <div class="form-floating mb-3">
+                <input type="password" class="form-control password" @bind="_passwordConfirmation" placeholder="Enter your password" />
+                <label for="floatingPassword">Password</label>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_passwordConfirmationErrorMessage))
+            {
+                <AlertMessage Type="danger" Message="@_passwordConfirmationErrorMessage" />
+            }
+        </form>
+    </ModalDialog>
+}
+
 @if (_showDeleteCoffeeDialog)
 {
     <ModalDialog Title="Delete User" OnClose="@OnDeleteCoffeeDialogClose" OkLabel="Confirm">
@@ -92,6 +109,7 @@
 }
 
 @code {
+    [CascadingParameter]
     private GlobalState _globalState { get; set; }
 
     private Coffees _deleteCoffee { get; set; }
@@ -103,11 +121,15 @@
     private bool _showAddCoffeeDialog { get; set; }
     private bool _showUpdateCoffeeDialog { get; set; }
     private bool _showDeleteCoffeeDialog { get; set; }
+    private bool _showPasswordConfirmationDialog { get; set; }
+    private bool passwordIsValid { get; set; }
 
     private string _addCoffeeErrorMessage { get; set; }
     private string _deleteCoffeeErrorMessage { get; set; }
     private string _updateCoffeeErrorMessage { get; set; }
+    private string _passwordConfirmationErrorMessage { get; set; }
 
+    private string _passwordConfirmation { get; set; }
 
 
     private List<Coffees> _coffees { get; set; }
@@ -154,6 +176,11 @@
         _coffeePrice = coffee.CoffeePrice;
     }
 
+    private void OpenPasswordConfirmationDialog()
+    {
+        _showPasswordConfirmationDialog = true;
+    }
+
     private void OnUpdateCoffeeDialogClose(bool isCancel)
     {
         if (isCancel)
@@ -163,16 +190,46 @@
         }
         else
         {
-            try
+            // enable arko euto pop up to ask for password
+            OpenPasswordConfirmationDialog();
+            //if password matches tala ko try execute else iscancel wala code copy
+
+        }
+    }
+
+    private void OnPasswordConfirmationDialogClose(bool isCancel)
+    {
+        if (isCancel)
+        {
+            _showPasswordConfirmationDialog = false;
+            _showUpdateCoffeeDialog = false;
+        }
+        else
+        {
+            //password check
+
+            if(_globalState.CurrentUser != null)
+                passwordIsValid = Utils.VerifyHash(_passwordConfirmation, _globalState.CurrentUser.PasswordHash);
+
+            if (passwordIsValid)
             {
-                _updateCoffeeErrorMessage = "";
-                _coffees = CoffeeService.UpdateCoffee(_updateCoffee.ID, _coffeeName, _coffeePrice);
-                _showUpdateCoffeeDialog = false;
-                _updateCoffee = null;
+                try
+                {
+                    _updateCoffeeErrorMessage = "";
+                    _coffees = CoffeeService.UpdateCoffee(_updateCoffee.ID, _coffeeName, _coffeePrice);
+                    _showPasswordConfirmationDialog = false;
+                    _showUpdateCoffeeDialog = false;
+                    _updateCoffee = null;
+                }
+                catch (Exception e)
+                {
+                    _updateCoffeeErrorMessage = e.Message;
+                }
             }
-            catch (Exception e)
+            else
             {
-                _updateCoffeeErrorMessage = e.Message;
+                _passwordConfirmationErrorMessage = "Password is invalid!";
+                _passwordConfirmation = null;
             }
         }
     }
