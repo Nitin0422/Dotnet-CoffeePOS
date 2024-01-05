@@ -2,6 +2,7 @@
 @using Bislerium_v7.Data
 
 
+
 <nav class="navbar navbar-light bg-light justify-content-between">
     <h1 class="navbar-brand mb-0 h1">Coffee</h1>
     <button class="btn btn-primary" type="button" @onclick="OpenAddCoffeeDialog">
@@ -79,6 +80,16 @@
         </form>
     </ModalDialog>
 }
+@if (_showDeleteCoffeeDialog)
+{
+    <ModalDialog Title="Delete Coffee" OnClose="@OnDeleteCoffeeDialogClose" OkLabel="Confirm">
+        <p>Are you sure you want to delete <strong>@_deleteCoffee.CoffeeName</strong> coffee and it''s data?</p>
+        @if (!string.IsNullOrEmpty(_deleteCoffeeErrorMessage))
+        {
+            <AlertMessage Type="danger" Message="@_deleteCoffeeErrorMessage" />
+        }
+    </ModalDialog>
+}
 
 @if (_showPasswordConfirmationDialog)
 {
@@ -94,17 +105,6 @@
                 <AlertMessage Type="danger" Message="@_passwordConfirmationErrorMessage" />
             }
         </form>
-    </ModalDialog>
-}
-
-@if (_showDeleteCoffeeDialog)
-{
-    <ModalDialog Title="Delete User" OnClose="@OnDeleteCoffeeDialogClose" OkLabel="Confirm">
-        <p>Are you sure you want to delete <strong>@_deleteCoffee.CoffeeName</strong> coffee and it''s data?</p>
-        @if (!string.IsNullOrEmpty(_deleteCoffeeErrorMessage))
-        {
-            <AlertMessage Type="danger" Message="@_deleteCoffeeErrorMessage" />
-        }
     </ModalDialog>
 }
 
@@ -197,42 +197,7 @@
         }
     }
 
-    private void OnPasswordConfirmationDialogClose(bool isCancel)
-    {
-        if (isCancel)
-        {
-            _showPasswordConfirmationDialog = false;
-            _showUpdateCoffeeDialog = false;
-        }
-        else
-        {
-            //password check
 
-            if(_globalState.CurrentUser != null)
-                passwordIsValid = Utils.VerifyHash(_passwordConfirmation, _globalState.CurrentUser.PasswordHash);
-
-            if (passwordIsValid)
-            {
-                try
-                {
-                    _updateCoffeeErrorMessage = "";
-                    _coffees = CoffeeService.UpdateCoffee(_updateCoffee.ID, _coffeeName, _coffeePrice);
-                    _showPasswordConfirmationDialog = false;
-                    _showUpdateCoffeeDialog = false;
-                    _updateCoffee = null;
-                }
-                catch (Exception e)
-                {
-                    _updateCoffeeErrorMessage = e.Message;
-                }
-            }
-            else
-            {
-                _passwordConfirmationErrorMessage = "Password is invalid!";
-                _passwordConfirmation = null;
-            }
-        }
-    }
 
     private void OpenDeleteCoffeeDialog(Coffees coffee)
     {
@@ -250,16 +215,61 @@
         }
         else
         {
-            try
+            OpenPasswordConfirmationDialog();
+
+        }
+    }
+    private void OnPasswordConfirmationDialogClose(bool isCancel)
+    {
+        if (isCancel)
+        {
+            _showPasswordConfirmationDialog = false;
+            _showUpdateCoffeeDialog = false;
+            _showDeleteCoffeeDialog = false;
+        }
+        else
+        {
+            if (_globalState.CurrentUser != null)
+                passwordIsValid = Utils.VerifyHash(_passwordConfirmation, _globalState.CurrentUser.PasswordHash);
+
+            if (passwordIsValid && _showUpdateCoffeeDialog)
             {
-                _deleteCoffeeErrorMessage = "";
-                _coffees = CoffeeService.DeleteCoffee(_deleteCoffee.ID);
-                _showDeleteCoffeeDialog = false;
-                _deleteCoffee = null;
+                try
+                {
+                    _updateCoffeeErrorMessage = "";
+                    _coffees = CoffeeService.UpdateCoffee(_updateCoffee.ID, _coffeeName, _coffeePrice);
+                    _showPasswordConfirmationDialog = false;
+                    _showUpdateCoffeeDialog = false;
+                    _updateCoffee = null;
+                    _passwordConfirmation = null;
+                }
+                catch (Exception e)
+                {
+                    _updateCoffeeErrorMessage = e.Message;
+                    _passwordConfirmation = null;
+                }
             }
-            catch (Exception e)
+            else if (passwordIsValid && _showDeleteCoffeeDialog)
             {
-                _deleteCoffeeErrorMessage = e.Message;
+                try
+                {
+                    _deleteCoffeeErrorMessage = "";
+                    _coffees = CoffeeService.DeleteCoffee(_deleteCoffee.ID);
+                    _showPasswordConfirmationDialog = false;
+                    _showDeleteCoffeeDialog = false;
+                    _deleteCoffee = null;
+                    _passwordConfirmation = null;
+                }
+                catch (Exception e)
+                {
+                    _deleteCoffeeErrorMessage = e.Message;
+                    _passwordConfirmation = null;
+                }
+            }
+            else
+            {
+                _passwordConfirmationErrorMessage = "Password is invalid!";
+                _passwordConfirmation = null;
             }
         }
     }

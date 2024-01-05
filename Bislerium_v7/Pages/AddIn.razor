@@ -89,9 +89,25 @@
         }
     </ModalDialog>
 }
+@if (_showPasswordConfirmationDialog)
+{
+    <ModalDialog Title="Confirm Update" OnClose="@OnPasswordConfirmationDialogClose" OkLabel="Confirm">
+        <form>
+            <div class="form-floating mb-3">
+                <input type="password" class="form-control password" @bind="_passwordConfirmation" placeholder="Enter your password" />
+                <label for="floatingPassword">Password</label>
+            </div>
 
+            @if (!string.IsNullOrEmpty(_passwordConfirmationErrorMessage))
+            {
+                <AlertMessage Type="danger" Message="@_passwordConfirmationErrorMessage" />
+            }
+        </form>
+    </ModalDialog>
+}
 
 @code {
+    [CascadingParameter]
     private GlobalState _globalState { get; set; }
 
     private AddIns _deleteAddIn { get; set; }
@@ -103,10 +119,15 @@
     private bool _showAddAddInDialog { get; set; }
     private bool _showUpdateAddInDialog { get; set; }
     private bool _showDeleteAddInDialog { get; set; }
+    private bool _showPasswordConfirmationDialog { get; set; }
+    private bool passwordIsValid { get; set; }
 
     private string _addAddInErrorMessage { get; set; }
     private string _deleteAddInErrorMessage { get; set; }
     private string _updateAddInErrorMessage { get; set; }
+    private string _passwordConfirmationErrorMessage { get; set; }
+
+    private string _passwordConfirmation { get; set; }
 
     private List<AddIns> _addIns { get; set; }
 
@@ -151,6 +172,13 @@
         _addInPrice = addIn.AddInPrice;
     }
 
+    private void OpenPasswordConfirmationDialog()
+    {
+        _showPasswordConfirmationDialog = true;
+    }
+
+
+
     private void OnUpdateAddInDialogClose(bool isCancel)
     {
         if (isCancel)
@@ -160,17 +188,7 @@
         }
         else
         {
-            try
-            {
-                _updateAddInErrorMessage = "";
-                _addIns = AddInsService.UpdateAddIns(_updateAddIn.ID, _addInName, _addInPrice);
-                _showUpdateAddInDialog = false;
-                _updateAddIn = null;
-            }
-            catch (Exception e)
-            {
-                _updateAddInErrorMessage = e.Message;
-            }
+            OpenPasswordConfirmationDialog();
         }
     }
 
@@ -190,16 +208,61 @@
         }
         else
         {
-            try
+            OpenPasswordConfirmationDialog();
+        }
+    }
+    private void OnPasswordConfirmationDialogClose(bool isCancel)
+    {
+        if (isCancel)
+        {
+            _showPasswordConfirmationDialog = false;
+            _showUpdateAddInDialog = false;
+            _showDeleteAddInDialog = false;
+        }
+        else
+        {
+            if (_globalState.CurrentUser != null)
+                passwordIsValid = Utils.VerifyHash(_passwordConfirmation, _globalState.CurrentUser.PasswordHash);
+
+            if (passwordIsValid && _showUpdateAddInDialog)
             {
-                _deleteAddInErrorMessage = "";
-                _addIns = AddInsService.DeleteAddIn(_deleteAddIn.ID);
-                _showDeleteAddInDialog = false;
-                _deleteAddIn = null;
+                try
+                {
+                    _updateAddInErrorMessage = "";
+                    _addIns = AddInsService.UpdateAddIns(_updateAddIn.ID, _addInName, _addInPrice);
+                    _showUpdateAddInDialog = false;
+                    _showPasswordConfirmationDialog = false;
+                    _updateAddIn = null;
+                    _passwordConfirmation = null;
+
+                }
+                catch (Exception e)
+                {
+                    _updateAddInErrorMessage = e.Message;
+                    _passwordConfirmation = null;
+                }
             }
-            catch (Exception e)
+            else if (passwordIsValid && _showDeleteAddInDialog)
             {
-                _deleteAddInErrorMessage = e.Message;
+                try
+                {
+                    _deleteAddInErrorMessage = "";
+                    _addIns = AddInsService.DeleteAddIn(_deleteAddIn.ID);
+                    _showDeleteAddInDialog = false;
+                    _showPasswordConfirmationDialog = false;
+                    _deleteAddIn = null;
+                    _passwordConfirmation = null;
+                }
+                catch (Exception e)
+                {
+                    _deleteAddInErrorMessage = e.Message;
+                    _passwordConfirmation = null;
+                }
+            }
+            else
+            {
+                _passwordConfirmationErrorMessage = "Password is invalid!";
+                _passwordConfirmation = null;
             }
         }
     }

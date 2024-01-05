@@ -46,8 +46,8 @@ public static class Utils
     public static string GetAppDirectoryPath()
     {
         return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Islington-Todo"
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "Bislerium"
         );
     }
 
