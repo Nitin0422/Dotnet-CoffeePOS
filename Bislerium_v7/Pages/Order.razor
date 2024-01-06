@@ -1,9 +1,15 @@
 ﻿@page "/order"
 @using Bislerium_v7.Data
 
+@inject OrderService orderService; 
+
 <style>
     .scrollable {
-        max-height: 350px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .order_list {
+        max-height: 430px;
         overflow-y: auto;
     }
 </style>
@@ -68,22 +74,22 @@
 
         <!-- Right Column (1/3 width) -->
         <div class="col-md-4 ">
-            <div class="card w-100">
+            <div class="card w-100 ">
                 <div class="card-header"><strong> Order List</strong> </div>
                 <div class="card-body">
                     <!-- Add your product list here -->
-                    <ul class="list-group">
-                        @if (orderInstance.coffeeList.Count() > 0 || orderInstance.addInsList.Count() > 0)
+                    <ul class="list-group order_list">
+                        @if (orderService.orderInstance.coffeeList.Count() > 0 || orderService.orderInstance.addInsList.Count() > 0)
                         {
 
-                            @foreach (var coffee in orderInstance.coffeeList)
+                            @foreach (var coffee in orderService.orderInstance.coffeeList)
                             {
                                 <li class="list-group-item d-flex justify-content-between pb-0">
                                     <p class=""><strong>@coffee.CoffeeName</strong></p>
                                     <p class="">Price: Rs. @coffee.CoffeePrice</p>
                                 </li>
                             }
-                            @foreach (var addIn in orderInstance.addInsList)
+                            @foreach (var addIn in orderService.orderInstance.addInsList)
                             {
                                 <li class="list-group-item d-flex justify-content-between pb-0">
                                     <p class=""><strong>@addIn.AddInName</strong></p>
@@ -99,8 +105,38 @@
                         }
                     </ul>
                 </div>
+                <div class=" mx-4">
+                    <div>
+                        <div class="d-flex justify-content-between">
+                            <p><strong>Total: </strong></p>
+                            <p>Rs. @orderService.orderInstance.totalAmount</p>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-end">
+                            <div class="form-group mb-2 mr-2" style="width: 90%;">
+                                <label for="customer" class="sr-only">Customer Phone</label>
+                                <input type="text" class="form-control" id="customer" placeholder="Enter customer phone number" @bind ="customerPhone" required>
+                            </div>
+                            <button class="btn btn-dark mb-2" @onclick ="() => searchCustomer(customerPhone)">Search</button>
+                        </div>
+                        @if (customerSearched)
+                         { 
+                        <div class="d-flex justify-content-between">
+                            <p><strong>Free Coffee?: </strong></p>
+                            <p>@freeCoffee</p>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <p><strong>Discount: </strong></p>
+                            <p>Rs. @orderService.orderInstance.discount</p>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <p><strong>Grand Total: </strong></p>
+                            <p>Rs. @orderService.orderInstance.grandTotal</p>
+                        </div>
+                         }
+                    </div>
+                </div>
                 <div class="card-footer text-center">
-                    <button class="btn btn-success w-100">Check Out</button>
+                    <button class="btn btn-success w-100" @onclick ="() => CheckOut()">Check Out</button>
                 </div>
             </div>
         </div>
@@ -109,20 +145,21 @@
 
 
 @code {
+    private string customerPhone { get; set; }
+    private string freeCoffee { get; set; } = "No";
+
+    private bool customerSearched { get; set; } = false;
+
     private List<Coffees> _coffees { get; set; }
     private List<AddIns> _addIns { get; set; }
 
-    private List<Coffees> _coffeesOrderList { get; set; }
-    private List<AddIns> _addInsOrderList { get; set; }
-
-    private Orders orderInstance { get; set; } = new Orders();
+    //private Order orderInstance = orderService.CreateOrderInstance(); 
 
     protected override void OnInitialized()
     {
         _coffees = CoffeeService.GetAllCoffee();
         _addIns = AddInsService.GetAllAddIns();
-        orderInstance.addInsList = new List<AddIns>();
-        orderInstance.coffeeList = new List<Coffees>();
+
     }
 
     private void onAddToOrderList(int requestFrom, int ID)
@@ -130,13 +167,45 @@
         if (requestFrom == 1)
         {
             Coffees coffeeToAdd = _coffees.Find(x => x.ID == ID);
-            orderInstance.coffeeList.Add(coffeeToAdd);
+            orderService.orderInstance.coffeeList.Add(coffeeToAdd);
+            orderService.orderInstance.totalAmount = orderService.orderInstance.totalAmount + coffeeToAdd.CoffeePrice;
         }
         else
         {
             AddIns addInToAdd = _addIns.Find(x => x.ID == ID);
-            orderInstance.addInsList.Add(addInToAdd);
+            orderService.orderInstance.addInsList.Add(addInToAdd);
+            orderService.orderInstance.totalAmount = orderService.orderInstance.totalAmount + addInToAdd.AddInPrice;
         }
+    }
+
+    private void searchCustomer(string customerPhone)
+    {
+        orderService.orderInstance.customerPhone = customerPhone;
+        int orderCount = orderService.getOrderCount(customerPhone);
+
+        if (orderCount > 0 && orderCount % 10 == 0){
+            freeCoffee = "Yes";
+        }
+
+        if (orderService.checkDiscountAvailable(customerPhone))
+        {
+            orderService.orderInstance.discount = (int)Math.Round(0.1 * orderService.orderInstance.totalAmount);
+        }
+
+        orderService.orderInstance.grandTotal = orderService.orderInstance.totalAmount - orderService.orderInstance.discount;
+
+        if (freeCoffee.Equals("Yes"))
+        {
+            int deductableAmount = orderService.GetCoffeeWithHighestPrice();
+            orderService.orderInstance.grandTotal =- deductableAmount;
+        }
+
+        customerSearched = true;
+    }
+
+    private void CheckOut()
+    {
+        orderService.SaveAllOrders();
     }
 
 }

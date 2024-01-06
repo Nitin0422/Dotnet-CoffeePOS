@@ -65,9 +65,8 @@ public static class Utils
     {
         return Path.Combine(GetAppDirectoryPath(), "addIns.json");
     }
-
-    public static string GetTodosFilePath(Guid userId)
+    public static string GetAppOrdersFilePath()
     {
-        return Path.Combine(GetAppDirectoryPath(), userId.ToString() + "_todos.json");
+        return Path.Combine(GetAppDirectoryPath(), "orders.json");
     }
 }
